@@ -1,0 +1,40 @@
+#!/bin/bash
+
+# Simple script to create a video from an image and a selected segment of an audio file.
+# I use this to create feed-shareable instagram posts of my tracks/releases/mixes.
+
+# Dmenu function
+question() {
+    local -n var=$1
+    var=$($2 | dmenu "${@:3}")
+    [[ -z $var ]] && exit 0
+}
+
+# Dmenu inputs
+question audio ls -p "Audio file:" -i
+question start :  -p "Start time:"
+question duration :  -p "Duration:"
+question image ls -p "Image file:"
+
+outfile="imagevid$num.mp4"
+
+# This grabs the audio segment
+ffmpeg -loglevel panic -i "$audio" -ss $start -t $duration -c copy tmp.wav
+
+notify-send "🔃 Video encoding..."
+
+# File numbering incase of existing filename
+while [ -e "$outfile" ]; do
+    num=$(( num + 1 ))
+    outfile="imagevid$num.mp4"
+done
+
+# This creates the video
+if ffmpeg -loglevel panic -i tmp.wav -loop 1 -i "$image" -vf "crop=trunc(iw/2)*2:trunc(ih/2)*2" -c:v libx264 -tune stillimage -pix_fmt yuv420p -c:a aac -b:a 320k -shortest $outfile ; then
+	notify-send "✅ Encoding complete!" "File saved as $outfile"
+else
+	notify-send "❌ Encoding failed"
+fi
+
+# Temp file removed
+rm tmp.wav
